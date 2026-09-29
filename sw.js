@@ -1,6 +1,6 @@
 /* Ludo service worker: network-first for pages (updates show at once),
    cache-first for static assets, offline fallback to cached page. */
-const CACHE = 'ludo-v5';
+const CACHE = 'ludo-v6';
 const CORE = [
   '.',
   'index.html',

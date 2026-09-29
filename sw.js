@@ -1,5 +1,6 @@
-/* Ludo service worker: offline-first app shell */
-const CACHE = 'ludo-v2';
+/* Ludo service worker: network-first for pages (updates show at once),
+   cache-first for static assets, offline fallback to cached page. */
+const CACHE = 'ludo-v3';
 const CORE = [
   '.',
   'index.html',
@@ -24,8 +25,29 @@ self.addEventListener('activate', (event) => {
   );
 });
 
+function isPageRequest(request){
+  if (request.mode === 'navigate') return true;
+  const url = new URL(request.url);
+  return url.origin === self.location.origin &&
+    (url.pathname.endsWith('/') || url.pathname.endsWith('/index.html'));
+}
+
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
+
+  if (isPageRequest(event.request)){
+    // Pages: try network first so updates appear immediately when online.
+    event.respondWith(
+      fetch(event.request).then((res) => {
+        const copy = res.clone();
+        caches.open(CACHE).then((cache) => cache.put(event.request, copy));
+        return res;
+      }).catch(() => caches.match(event.request).then((hit) => hit || caches.match('index.html')))
+    );
+    return;
+  }
+
+  // Assets: cache-first, then network.
   event.respondWith(
     caches.match(event.request).then((hit) => {
       if (hit) return hit;

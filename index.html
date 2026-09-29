@@ -8,20 +8,21 @@
 <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png" />
 <link rel="apple-touch-icon" href="apple-touch-icon.png" />
 <link rel="manifest" href="manifest.json" />
-<meta name="theme-color" content="#0b1220" />
+<meta name="theme-color" content="#ffffff" />
 <meta name="mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 <meta name="apple-mobile-web-app-title" content="Ludo" />
 <style>
   :root{
-    --bg:#0b1220;
-    --panel:#111a2e;
-    --line:#1e2a45;
-    --ink:#eef2f7;
-    --soft:#8b98b0;
-    --accent:#fbbf24;
+    --bg:#ffffff;
+    --panel:#ffffff;
+    --line:#e5eaf1;
+    --ink:#0f1e33;
+    --soft:#64748b;
+    --accent:#f59e0b;
     --red:#fb7185;
+    --shadow:0 6px 20px rgba(15,30,51,.08);
   }
   *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
   html,body{
@@ -44,12 +45,13 @@
   .ghost-btn{
     background:var(--panel); color:var(--ink); border:1px solid var(--line);
     border-radius:10px; padding:8px 14px; font-size:13px; font-weight:600; cursor:pointer;
+    box-shadow:var(--shadow);
   }
   .ghost-btn:active{ transform:scale(.96); }
   .turnbar{
     width:100%; display:flex; align-items:center; gap:10px;
     background:var(--panel); border:1px solid var(--line); border-radius:14px;
-    padding:10px 14px; margin-bottom:10px;
+    padding:10px 14px; margin-bottom:10px; box-shadow:var(--shadow);
   }
   .dot{ width:16px; height:16px; border-radius:50%; flex:0 0 auto; border:2px solid rgba(255,255,255,.35); }
   #turnText{ font-size:15px; font-weight:600; }
@@ -57,7 +59,7 @@
   .board-wrap{ position:relative; width:100%; }
   canvas{
     display:block; width:100%; aspect-ratio:1/1;
-    border-radius:16px; border:1px solid var(--line);
+    border-radius:16px; border:1px solid var(--line); box-shadow:var(--shadow);
     touch-action:none; user-select:none; -webkit-user-select:none;
   }
   .dice-row{ display:flex; align-items:center; gap:14px; margin-top:12px; min-height:84px; }
@@ -65,7 +67,7 @@
     width:76px; height:76px; border-radius:20px; border:1px solid var(--line);
     background:var(--panel); color:var(--ink); font-size:52px; line-height:1;
     cursor:pointer; display:flex; align-items:center; justify-content:center;
-    transition:transform .1s ease;
+    transition:transform .1s ease; box-shadow:var(--shadow);
   }
   #diceBtn:active:not(:disabled){ transform:scale(.93); }
   #diceBtn:disabled{ opacity:.45; cursor:default; }
@@ -80,29 +82,29 @@
   .overlay{
     position:absolute; inset:0; border-radius:16px; z-index:5;
     display:flex; align-items:center; justify-content:center; padding:20px;
-    background:rgba(11,18,32,.88); backdrop-filter:blur(4px);
+    background:rgba(255,255,255,.9); backdrop-filter:blur(4px);
   }
   .overlay[hidden]{ display:none; }
   .sheet{
     background:var(--panel); border:1px solid var(--line); border-radius:20px;
     padding:26px 22px; width:100%; max-width:360px; text-align:center;
-    max-height:100%; overflow-y:auto;
+    max-height:100%; overflow-y:auto; box-shadow:0 18px 50px rgba(15,30,51,.16);
   }
   .sheet h2{ margin:0 0 4px; font-size:24px; }
   .sheet p.sub{ margin:0 0 16px; color:var(--soft); font-size:13px; }
   .prow{
     display:flex; align-items:center; gap:10px; margin-bottom:10px;
-    background:rgba(255,255,255,.03); border:1px solid var(--line);
+    background:#f8fafc; border:1px solid var(--line);
     border-radius:12px; padding:8px 10px;
   }
   .prow .dot{ width:20px; height:20px; }
   .prow .pname{ font-weight:700; font-size:15px; width:64px; text-align:left; }
-  .seg{ display:flex; margin-left:auto; background:#0b1220; border-radius:10px; padding:3px; gap:2px; }
+  .seg{ display:flex; margin-left:auto; background:#edf1f7; border-radius:10px; padding:3px; gap:2px; }
   .seg button{
     border:none; background:transparent; color:var(--soft); font-size:12px; font-weight:700;
     padding:7px 12px; border-radius:8px; cursor:pointer;
   }
-  .seg button.on{ background:#2b3a5c; color:#fff; }
+  .seg button.on{ background:#0f1e33; color:#fff; }
   .btn{
     border:none; cursor:pointer; font-size:16px; font-weight:700;
     background:var(--accent); color:#3a2503;
@@ -548,7 +550,7 @@ function createLudo(){
   /* ---------- rendering ---------- */
   function syncTurnbar(){
     if (S.phase === 'setup' || S.turn < 0){
-      turnDot.style.background = '#2b3a5c';
+      turnDot.style.background = '#cbd5e1';
       turnText.textContent = 'Set up players';
       turnSub.textContent = '';
       return;

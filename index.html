@@ -131,15 +131,11 @@
     </div>
     <div class="hbtns">
       <button class="ghost-btn icon-btn" id="muteBtn" aria-label="Toggle sound">
-        <svg id="sndOn" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <path d="M11 5 6 9H2v6h4l5 4z" fill="currentColor" stroke="none"/>
           <path d="M15.5 8.5a5 5 0 0 1 0 7"/>
           <path d="M18.6 5.4a9.2 9.2 0 0 1 0 13.2"/>
-        </svg>
-        <svg id="sndOff" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" hidden>
-          <path d="M11 5 6 9H2v6h4l5 4z" fill="currentColor" stroke="none"/>
-          <line x1="22" y1="9" x2="16" y2="15"/>
-          <line x1="16" y1="9" x2="22" y2="15"/>
+          <line id="muteSlash" x1="3" y1="3" x2="21" y2="21" hidden/>
         </svg>
       </button>
       <button class="ghost-btn" id="newGameBtn">New game</button>
@@ -455,8 +451,8 @@ function createLudo(){
 
   const muteBtn = document.getElementById('muteBtn');
   function syncMute(){
-    document.getElementById('sndOn').hidden = SFX.muted;
-    document.getElementById('sndOff').hidden = !SFX.muted;
+    document.getElementById('muteSlash').hidden = !SFX.muted;
+    muteBtn.style.opacity = SFX.muted ? 0.45 : 1;
   }
   muteBtn.addEventListener('click', () => { SFX.unlock(); SFX.toggle(); syncMute(); if (!SFX.muted) SFX.click(); });
   syncMute();

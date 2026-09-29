@@ -1,5 +1,5 @@
 /* Ludo service worker: offline-first app shell */
-const CACHE = 'ludo-v1';
+const CACHE = 'ludo-v2';
 const CORE = [
   '.',
   'index.html',

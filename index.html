@@ -49,6 +49,7 @@
   }
   .ghost-btn:active{ transform:scale(.96); }
   .hbtns{ display:flex; gap:8px; }
+  .icon-btn{ display:flex; align-items:center; justify-content:center; padding:8px 10px; color:var(--soft); }
   .turnbar{
     width:100%; display:flex; align-items:center; gap:10px;
     background:var(--panel); border:1px solid var(--line); border-radius:14px;
@@ -129,7 +130,18 @@
       <span class="brand-name">Ludo</span>
     </div>
     <div class="hbtns">
-      <button class="ghost-btn" id="muteBtn" aria-label="Toggle sound">🔊</button>
+      <button class="ghost-btn icon-btn" id="muteBtn" aria-label="Toggle sound">
+        <svg id="sndOn" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M11 5 6 9H2v6h4l5 4z" fill="currentColor" stroke="none"/>
+          <path d="M15.5 8.5a5 5 0 0 1 0 7"/>
+          <path d="M18.6 5.4a9.2 9.2 0 0 1 0 13.2"/>
+        </svg>
+        <svg id="sndOff" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" hidden>
+          <path d="M11 5 6 9H2v6h4l5 4z" fill="currentColor" stroke="none"/>
+          <line x1="22" y1="9" x2="16" y2="15"/>
+          <line x1="16" y1="9" x2="22" y2="15"/>
+        </svg>
+      </button>
       <button class="ghost-btn" id="newGameBtn">New game</button>
     </div>
   </header>
@@ -348,7 +360,7 @@ function createLudo(){
   let anim = null;            // { pi, piece, cells, i, t }
   let toastTimer = null;
 
-  /* ---------- sound (Web Audio, no files, works offline) ---------- */
+  /* ---------- sound: realistic Ludo-style effects, Web Audio, no files ---------- */
   const SFX = (() => {
     let ctx = null;
     let muted = false;
@@ -363,35 +375,47 @@ function createLudo(){
       if (ctx.state === 'suspended') ctx.resume().catch(() => {});
       return ctx;
     }
-    function tone(o){
+    function env(g, t0, v, t){
+      g.gain.setValueAtTime(0.0001, t0);
+      g.gain.exponentialRampToValueAtTime(Math.max(v, 0.0002), t0 + 0.008);
+      g.gain.exponentialRampToValueAtTime(0.0001, t0 + t);
+    }
+    // Wooden knock / tok: pitched thump with a click attack (dice, tokens)
+    function knock(o){
       if (muted) return;
       const c = ac(); if (!c) return;
-      const f = o.f || 440, t = o.t || 0.12, type = o.type || 'sine',
-            v = o.v || 0.15, at = o.at || 0;
+      const f = o.f || 800, t = o.t || 0.07, v = o.v || 0.18, at = o.at || 0;
       const t0 = c.currentTime + at;
       const osc = c.createOscillator(), g = c.createGain();
-      osc.type = type;
+      osc.type = 'sine';
       osc.frequency.setValueAtTime(f, t0);
-      if (o.slide) osc.frequency.exponentialRampToValueAtTime(o.slide, t0 + t);
-      g.gain.setValueAtTime(0.0001, t0);
-      g.gain.exponentialRampToValueAtTime(v, t0 + 0.012);
-      g.gain.exponentialRampToValueAtTime(0.0001, t0 + t);
+      osc.frequency.exponentialRampToValueAtTime(o.slide || f * 0.72, t0 + t);
+      env(g, t0, v, t);
       osc.connect(g); g.connect(c.destination);
       osc.start(t0); osc.stop(t0 + t + 0.05);
-    }
-    function rattle(at, v, fc){
-      if (muted) return;
-      const c = ac(); if (!c) return;
-      const t0 = c.currentTime + at, dur = 0.045;
-      const len = Math.max(1, (dur * c.sampleRate) | 0);
+      // click transient for the wooden attack
+      const len = Math.max(1, (0.015 * c.sampleRate) | 0);
       const buf = c.createBuffer(1, len, c.sampleRate);
       const d = buf.getChannelData(0);
       for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / len);
       const src = c.createBufferSource(); src.buffer = buf;
-      const fl = c.createBiquadFilter(); fl.type = 'highpass'; fl.frequency.value = fc;
-      const g = c.createGain(); g.gain.value = v;
-      src.connect(fl); fl.connect(g); g.connect(c.destination);
+      const fl = c.createBiquadFilter(); fl.type = 'highpass'; fl.frequency.value = 2500;
+      const ng = c.createGain(); ng.gain.value = v * 0.5;
+      src.connect(fl); fl.connect(ng); ng.connect(c.destination);
       src.start(t0);
+    }
+    // Bright xylophone-like note for jingles
+    function pluck(o){
+      if (muted) return;
+      const c = ac(); if (!c) return;
+      const f = o.f || 660, t = o.t || 0.25, v = o.v || 0.14, at = o.at || 0;
+      const t0 = c.currentTime + at;
+      const osc = c.createOscillator(), g = c.createGain();
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(f, t0);
+      env(g, t0, v, t);
+      osc.connect(g); g.connect(c.destination);
+      osc.start(t0); osc.stop(t0 + t + 0.05);
     }
     return {
       get muted(){ return muted; },
@@ -401,22 +425,39 @@ function createLudo(){
         return muted;
       },
       unlock(){ ac(); },
-      click(){ tone({ f: 660, t: 0.06, type: 'triangle', v: 0.10 }); },
-      dice(){ for (let i = 0; i < 7; i++) rattle(i * 0.055, 0.09, 1800 + Math.random() * 1500); },
-      step(){ tone({ f: 500 + Math.random() * 90, t: 0.05, type: 'triangle', v: 0.09 }); },
-      six(){ [523, 659, 784].forEach((f, i) => tone({ f, t: 0.12, type: 'triangle', v: 0.13, at: i * 0.07 })); },
-      capture(){
-        tone({ f: 300, t: 0.22, type: 'sawtooth', v: 0.13, slide: 90 });
-        rattle(0.02, 0.09, 900);
+      click(){ knock({ f: 900, t: 0.05, v: 0.10 }); },
+      turn(){ pluck({ f: 587, t: 0.12, v: 0.09 }); pluck({ f: 880, t: 0.14, v: 0.09, at: 0.07 }); },
+      dice(){
+        // shaking dice: bright rattling clicks, then the landing thak
+        const n = 8 + ((Math.random() * 3) | 0);
+        for (let i = 0; i < n; i++){
+          knock({ f: 1500 + Math.random() * 1000, t: 0.035, v: 0.06,
+                  at: i * 0.052 + Math.random() * 0.018 });
+        }
+        const land = n * 0.052 + 0.03;
+        knock({ f: 340, t: 0.10, v: 0.22, at: land, slide: 170 });
+        knock({ f: 1400, t: 0.03, v: 0.07, at: land });
       },
-      home(){ [523, 784].forEach((f, i) => tone({ f, t: 0.16, v: 0.15, at: i * 0.09 })); },
-      noMove(){ tone({ f: 220, t: 0.12, v: 0.09, slide: 160 }); },
-      win(){ [523, 659, 784, 1047, 784, 1047].forEach((f, i) => tone({ f, t: 0.18, type: 'triangle', v: 0.15, at: i * 0.11 })); },
+      step(){ knock({ f: 720 + Math.random() * 160, t: 0.06, v: 0.15, slide: 480 }); },
+      six(){ [659, 784, 988].forEach((f, i) => pluck({ f, t: 0.16, v: 0.13, at: i * 0.07 })); },
+      capture(){
+        knock({ f: 200, t: 0.20, v: 0.26, slide: 95 });
+        knock({ f: 850, t: 0.05, v: 0.12, at: 0.015 });
+      },
+      home(){ pluck({ f: 523, t: 0.22, v: 0.14 }); pluck({ f: 784, t: 0.28, v: 0.14, at: 0.09 }); },
+      noMove(){ knock({ f: 240, t: 0.12, v: 0.12, slide: 150 }); },
+      win(){
+        [523, 659, 784, 1047].forEach((f, i) => pluck({ f, t: 0.22, v: 0.14, at: i * 0.11 }));
+        pluck({ f: 1319, t: 0.40, v: 0.15, at: 0.46 });
+      },
     };
   })();
 
   const muteBtn = document.getElementById('muteBtn');
-  function syncMute(){ muteBtn.textContent = SFX.muted ? '🔇' : '🔊'; }
+  function syncMute(){
+    document.getElementById('sndOn').hidden = SFX.muted;
+    document.getElementById('sndOff').hidden = !SFX.muted;
+  }
   muteBtn.addEventListener('click', () => { SFX.unlock(); SFX.toggle(); syncMute(); if (!SFX.muted) SFX.click(); });
   syncMute();
 
@@ -497,6 +538,7 @@ function createLudo(){
     if (isHuman(pi)){
       turnSub.textContent = 'Tap the dice';
       diceBtn.disabled = false;
+      SFX.turn();
     } else {
       turnSub.textContent = 'Thinking…';
       diceBtn.disabled = true;

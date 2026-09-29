@@ -48,6 +48,7 @@
     box-shadow:var(--shadow);
   }
   .ghost-btn:active{ transform:scale(.96); }
+  .hbtns{ display:flex; gap:8px; }
   .turnbar{
     width:100%; display:flex; align-items:center; gap:10px;
     background:var(--panel); border:1px solid var(--line); border-radius:14px;
@@ -62,7 +63,7 @@
     border-radius:16px; border:1px solid var(--line); box-shadow:var(--shadow);
     touch-action:none; user-select:none; -webkit-user-select:none;
   }
-  .dice-row{ display:flex; align-items:center; gap:14px; margin-top:12px; min-height:84px; }
+  .dice-row{ display:flex; flex-direction:column; align-items:center; gap:10px; margin-top:12px; min-height:132px; }
   #diceBtn{
     width:76px; height:76px; border-radius:20px; border:1px solid var(--line);
     background:var(--panel); color:var(--ink); font-size:52px; line-height:1;
@@ -74,7 +75,7 @@
   #diceBtn.rolling{ animation:shake .12s infinite; }
   @keyframes shake{ 0%{transform:rotate(-8deg)} 50%{transform:rotate(8deg)} 100%{transform:rotate(-8deg)} }
   #toast{
-    font-size:14px; color:var(--soft); max-width:260px; line-height:1.45;
+    font-size:14px; color:var(--soft); max-width:320px; line-height:1.45; text-align:center;
     opacity:0; transition:opacity .25s ease;
   }
   #toast.show{ opacity:1; }
@@ -127,7 +128,10 @@
       <img src="icon-192.png" alt="" width="34" height="34">
       <span class="brand-name">Ludo</span>
     </div>
-    <button class="ghost-btn" id="newGameBtn">New game</button>
+    <div class="hbtns">
+      <button class="ghost-btn" id="muteBtn" aria-label="Toggle sound">🔊</button>
+      <button class="ghost-btn" id="newGameBtn">New game</button>
+    </div>
   </header>
 
   <div class="turnbar">
@@ -344,6 +348,78 @@ function createLudo(){
   let anim = null;            // { pi, piece, cells, i, t }
   let toastTimer = null;
 
+  /* ---------- sound (Web Audio, no files, works offline) ---------- */
+  const SFX = (() => {
+    let ctx = null;
+    let muted = false;
+    try { muted = localStorage.getItem('ludo-muted') === '1'; } catch (e) {}
+    function ac(){
+      if (typeof window === 'undefined') return null;
+      if (!ctx){
+        const AC = window.AudioContext || window.webkitAudioContext;
+        if (!AC) return null;
+        ctx = new AC();
+      }
+      if (ctx.state === 'suspended') ctx.resume().catch(() => {});
+      return ctx;
+    }
+    function tone(o){
+      if (muted) return;
+      const c = ac(); if (!c) return;
+      const f = o.f || 440, t = o.t || 0.12, type = o.type || 'sine',
+            v = o.v || 0.15, at = o.at || 0;
+      const t0 = c.currentTime + at;
+      const osc = c.createOscillator(), g = c.createGain();
+      osc.type = type;
+      osc.frequency.setValueAtTime(f, t0);
+      if (o.slide) osc.frequency.exponentialRampToValueAtTime(o.slide, t0 + t);
+      g.gain.setValueAtTime(0.0001, t0);
+      g.gain.exponentialRampToValueAtTime(v, t0 + 0.012);
+      g.gain.exponentialRampToValueAtTime(0.0001, t0 + t);
+      osc.connect(g); g.connect(c.destination);
+      osc.start(t0); osc.stop(t0 + t + 0.05);
+    }
+    function rattle(at, v, fc){
+      if (muted) return;
+      const c = ac(); if (!c) return;
+      const t0 = c.currentTime + at, dur = 0.045;
+      const len = Math.max(1, (dur * c.sampleRate) | 0);
+      const buf = c.createBuffer(1, len, c.sampleRate);
+      const d = buf.getChannelData(0);
+      for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / len);
+      const src = c.createBufferSource(); src.buffer = buf;
+      const fl = c.createBiquadFilter(); fl.type = 'highpass'; fl.frequency.value = fc;
+      const g = c.createGain(); g.gain.value = v;
+      src.connect(fl); fl.connect(g); g.connect(c.destination);
+      src.start(t0);
+    }
+    return {
+      get muted(){ return muted; },
+      toggle(){
+        muted = !muted;
+        try { localStorage.setItem('ludo-muted', muted ? '1' : '0'); } catch (e) {}
+        return muted;
+      },
+      unlock(){ ac(); },
+      click(){ tone({ f: 660, t: 0.06, type: 'triangle', v: 0.10 }); },
+      dice(){ for (let i = 0; i < 7; i++) rattle(i * 0.055, 0.09, 1800 + Math.random() * 1500); },
+      step(){ tone({ f: 500 + Math.random() * 90, t: 0.05, type: 'triangle', v: 0.09 }); },
+      six(){ [523, 659, 784].forEach((f, i) => tone({ f, t: 0.12, type: 'triangle', v: 0.13, at: i * 0.07 })); },
+      capture(){
+        tone({ f: 300, t: 0.22, type: 'sawtooth', v: 0.13, slide: 90 });
+        rattle(0.02, 0.09, 900);
+      },
+      home(){ [523, 784].forEach((f, i) => tone({ f, t: 0.16, v: 0.15, at: i * 0.09 })); },
+      noMove(){ tone({ f: 220, t: 0.12, v: 0.09, slide: 160 }); },
+      win(){ [523, 659, 784, 1047, 784, 1047].forEach((f, i) => tone({ f, t: 0.18, type: 'triangle', v: 0.15, at: i * 0.11 })); },
+    };
+  })();
+
+  const muteBtn = document.getElementById('muteBtn');
+  function syncMute(){ muteBtn.textContent = SFX.muted ? '🔇' : '🔊'; }
+  muteBtn.addEventListener('click', () => { SFX.unlock(); SFX.toggle(); syncMute(); if (!SFX.muted) SFX.click(); });
+  syncMute();
+
   /* ---------- setup UI ---------- */
   const typeChoices = ['human', 'cpu', 'off'];
   const typeLabels = { human:'Human', cpu:'CPU', off:'Off' };
@@ -375,9 +451,11 @@ function createLudo(){
   document.getElementById('startGameBtn').addEventListener('click', () => {
     const active = selTypes.filter((t) => t !== 'off').length;
     if (active < 2){ toast('Pick at least <b>2 players</b>.'); return; }
+    SFX.unlock(); SFX.click();
     startGame();
   });
   document.getElementById('newGameBtn').addEventListener('click', () => {
+    SFX.unlock(); SFX.click();
     gameId++;
     anim = null;
     S.phase = 'setup';
@@ -387,6 +465,7 @@ function createLudo(){
     draw();
   });
   document.getElementById('againBtn').addEventListener('click', () => {
+    SFX.unlock(); SFX.click();
     winOverlay.hidden = true;
     setupOverlay.hidden = false;
     S.phase = 'setup';
@@ -435,6 +514,8 @@ function createLudo(){
   function humanRoll(fromCpu){
     if (S.phase !== 'roll') return;
     const id = gameId;
+    SFX.unlock();
+    SFX.dice();
     diceBtn.disabled = true;
     diceBtn.classList.add('rolling');
     let n = 0;
@@ -459,14 +540,17 @@ function createLudo(){
       S.sixes++;
       if (S.sixes >= 3){
         S.sixes = 0;
+        SFX.noMove();
         toast('<b>' + P.name + '</b> rolled three 6s — turn skipped.', 1800);
         return endTurn(false);
       }
+      SFX.six();
     } else {
       S.sixes = 0;
     }
     const moves = game.legalMoves(pi, d);
     if (moves.length === 0){
+      SFX.noMove();
       toast('<b>' + P.name + '</b> rolled ' + d + ' — no moves.', 1500);
       return endTurn(false);
     }
@@ -506,6 +590,7 @@ function createLudo(){
     const ev = game.doMove(pi, mv);
     draw();
     if (ev.win){
+      SFX.win();
       winTitle.textContent = P.name + ' wins!';
       winTitle.style.color = P.color;
       winOverlay.hidden = false;
@@ -513,8 +598,8 @@ function createLudo(){
       return;
     }
     let msg = '';
-    if (ev.captured > 0) msg += '<b>' + P.name + '</b> captures! ';
-    if (ev.home) msg += 'Piece home! ';
+    if (ev.captured > 0){ msg += '<b>' + P.name + '</b> captures! '; SFX.capture(); }
+    if (ev.home){ msg += 'Piece home! '; SFX.home(); }
     const extra = (S.dice === 6) || ev.captured > 0 || ev.home;
     if (msg) toast(msg + (extra ? 'Roll again.' : ''), 1700);
     endTurn(extra && !ev.win);
@@ -533,6 +618,7 @@ function createLudo(){
 
   /* ---------- board tap: choose piece ---------- */
   canvas.addEventListener('click', (e) => {
+    SFX.unlock();
     if (S.phase !== 'move' || !isHuman(S.turn)) return;
     const rect = canvas.getBoundingClientRect();
     const cx = (e.clientX - rect.left) / rect.width * 15;
@@ -744,6 +830,7 @@ function createLudo(){
       if (anim.t >= 0.13){
         anim.t = 0;
         anim.i++;
+        SFX.step();
         if (anim.i >= anim.cells.length - 1) finishAnim();
       }
     }

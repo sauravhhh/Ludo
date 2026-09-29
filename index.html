@@ -1,0 +1,768 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Ludo</title>
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png" />
+<link rel="icon" type="image/png" sizes="512x512" href="icon-512.png" />
+<link rel="apple-touch-icon" href="apple-touch-icon.png" />
+<link rel="manifest" href="manifest.json" />
+<meta name="theme-color" content="#0b1220" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="Ludo" />
+<style>
+  :root{
+    --bg:#0b1220;
+    --panel:#111a2e;
+    --line:#1e2a45;
+    --ink:#eef2f7;
+    --soft:#8b98b0;
+    --accent:#fbbf24;
+    --red:#fb7185;
+  }
+  *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body{
+    margin:0; padding:0; min-height:100%;
+    background:var(--bg); color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    -webkit-font-smoothing:antialiased;
+    overscroll-behavior:none;
+  }
+  body{ display:flex; justify-content:center; touch-action:manipulation; }
+  .app{
+    width:100%; max-width:480px; min-height:100vh; min-height:100dvh;
+    display:flex; flex-direction:column; align-items:center;
+    padding:calc(16px + env(safe-area-inset-top)) 12px calc(16px + env(safe-area-inset-bottom));
+  }
+  header{ width:100%; display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; }
+  .brand{ display:flex; align-items:center; gap:10px; }
+  .brand img{ width:34px; height:34px; border-radius:9px; display:block; }
+  .brand-name{ font-size:20px; font-weight:700; letter-spacing:-0.01em; }
+  .ghost-btn{
+    background:var(--panel); color:var(--ink); border:1px solid var(--line);
+    border-radius:10px; padding:8px 14px; font-size:13px; font-weight:600; cursor:pointer;
+  }
+  .ghost-btn:active{ transform:scale(.96); }
+  .turnbar{
+    width:100%; display:flex; align-items:center; gap:10px;
+    background:var(--panel); border:1px solid var(--line); border-radius:14px;
+    padding:10px 14px; margin-bottom:10px;
+  }
+  .dot{ width:16px; height:16px; border-radius:50%; flex:0 0 auto; border:2px solid rgba(255,255,255,.35); }
+  #turnText{ font-size:15px; font-weight:600; }
+  #turnSub{ font-size:12px; color:var(--soft); margin-left:auto; text-align:right; }
+  .board-wrap{ position:relative; width:100%; }
+  canvas{
+    display:block; width:100%; aspect-ratio:1/1;
+    border-radius:16px; border:1px solid var(--line);
+    touch-action:none; user-select:none; -webkit-user-select:none;
+  }
+  .dice-row{ display:flex; align-items:center; gap:14px; margin-top:12px; min-height:84px; }
+  #diceBtn{
+    width:76px; height:76px; border-radius:20px; border:1px solid var(--line);
+    background:var(--panel); color:var(--ink); font-size:52px; line-height:1;
+    cursor:pointer; display:flex; align-items:center; justify-content:center;
+    transition:transform .1s ease;
+  }
+  #diceBtn:active:not(:disabled){ transform:scale(.93); }
+  #diceBtn:disabled{ opacity:.45; cursor:default; }
+  #diceBtn.rolling{ animation:shake .12s infinite; }
+  @keyframes shake{ 0%{transform:rotate(-8deg)} 50%{transform:rotate(8deg)} 100%{transform:rotate(-8deg)} }
+  #toast{
+    font-size:14px; color:var(--soft); max-width:260px; line-height:1.45;
+    opacity:0; transition:opacity .25s ease;
+  }
+  #toast.show{ opacity:1; }
+  #toast b{ color:var(--ink); }
+  .overlay{
+    position:absolute; inset:0; border-radius:16px; z-index:5;
+    display:flex; align-items:center; justify-content:center; padding:20px;
+    background:rgba(11,18,32,.88); backdrop-filter:blur(4px);
+  }
+  .overlay[hidden]{ display:none; }
+  .sheet{
+    background:var(--panel); border:1px solid var(--line); border-radius:20px;
+    padding:26px 22px; width:100%; max-width:360px; text-align:center;
+    max-height:100%; overflow-y:auto;
+  }
+  .sheet h2{ margin:0 0 4px; font-size:24px; }
+  .sheet p.sub{ margin:0 0 16px; color:var(--soft); font-size:13px; }
+  .prow{
+    display:flex; align-items:center; gap:10px; margin-bottom:10px;
+    background:rgba(255,255,255,.03); border:1px solid var(--line);
+    border-radius:12px; padding:8px 10px;
+  }
+  .prow .dot{ width:20px; height:20px; }
+  .prow .pname{ font-weight:700; font-size:15px; width:64px; text-align:left; }
+  .seg{ display:flex; margin-left:auto; background:#0b1220; border-radius:10px; padding:3px; gap:2px; }
+  .seg button{
+    border:none; background:transparent; color:var(--soft); font-size:12px; font-weight:700;
+    padding:7px 12px; border-radius:8px; cursor:pointer;
+  }
+  .seg button.on{ background:#2b3a5c; color:#fff; }
+  .btn{
+    border:none; cursor:pointer; font-size:16px; font-weight:700;
+    background:var(--accent); color:#3a2503;
+    padding:13px 34px; border-radius:14px; margin-top:8px; width:100%;
+  }
+  .btn:active{ transform:scale(.97); }
+  .btn:disabled{ opacity:.4; }
+  #winEmoji{ font-size:52px; }
+  .sheet .final{ font-size:15px; color:var(--ink); margin:8px 0 2px; }
+  .sheet .final b{ font-size:22px; }
+  footer{ margin-top:auto; padding-top:18px; }
+  footer p{ margin:0; font-size:12.5px; color:var(--soft); }
+  footer span{ color:var(--red); }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="brand">
+      <img src="icon-192.png" alt="" width="34" height="34">
+      <span class="brand-name">Ludo</span>
+    </div>
+    <button class="ghost-btn" id="newGameBtn">New game</button>
+  </header>
+
+  <div class="turnbar">
+    <span class="dot" id="turnDot"></span>
+    <span id="turnText">Set up players</span>
+    <span id="turnSub"></span>
+  </div>
+
+  <div class="board-wrap">
+    <canvas id="board" width="600" height="600" aria-label="Ludo board"></canvas>
+
+    <div class="overlay" id="setupOverlay">
+      <div class="sheet">
+        <h2>Ludo</h2>
+        <p class="sub">Choose who plays each color. At least 2 players.</p>
+        <div id="setupRows"></div>
+        <button class="btn" id="startGameBtn">Start game</button>
+      </div>
+    </div>
+
+    <div class="overlay" id="winOverlay" hidden>
+      <div class="sheet">
+        <div id="winEmoji">🏆</div>
+        <h2 id="winTitle">Red wins!</h2>
+        <p class="sub">All 4 pieces reached home.</p>
+        <button class="btn" id="againBtn">Play again</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="dice-row">
+    <button id="diceBtn" disabled>⚄</button>
+    <div id="toast"></div>
+  </div>
+
+  <footer><p>Made with <span>❤️</span> by sauravhhh</p></footer>
+</div>
+
+<script>
+/* ================= Pure Ludo rules (no DOM) ================= */
+const LUDO_PATH = [
+  [1,6],[2,6],[3,6],[4,6],[5,6],
+  [6,5],[6,4],[6,3],[6,2],[6,1],[6,0],[7,0],[8,0],
+  [8,1],[8,2],[8,3],[8,4],[8,5],
+  [9,6],[10,6],[11,6],[12,6],[13,6],[14,6],[14,7],[14,8],
+  [13,8],[12,8],[11,8],[10,8],[9,8],
+  [8,9],[8,10],[8,11],[8,12],[8,13],[8,14],[7,14],[6,14],
+  [6,13],[6,12],[6,11],[6,10],[6,9],
+  [5,8],[4,8],[3,8],[2,8],[1,8],[0,8],[0,7],[0,6]
+];
+const LUDO_SAFE = new Set([0, 8, 13, 21, 26, 34, 39, 47]);
+const LUDO_PLAYERS = [
+  { id:'red',    name:'Red',    color:'#ef4444', dark:'#b91c1c', start:0,
+    homeCol:[[1,7],[2,7],[3,7],[4,7],[5,7]],
+    homeSpots:[[6.05,6.7],[6.45,6.7],[6.05,7.3],[6.45,7.3]],
+    base:[[1.4,1.4],[3.6,1.4],[1.4,3.6],[3.6,3.6]] },
+  { id:'green',  name:'Green',  color:'#22c55e', dark:'#15803d', start:13,
+    homeCol:[[7,1],[7,2],[7,3],[7,4],[7,5]],
+    homeSpots:[[6.7,6.05],[7.3,6.05],[6.7,6.65],[7.3,6.65]],
+    base:[[10.4,1.4],[12.6,1.4],[10.4,3.6],[12.6,3.6]] },
+  { id:'yellow', name:'Yellow', color:'#eab308', dark:'#a16207', start:26,
+    homeCol:[[13,7],[12,7],[11,7],[10,7],[9,7]],
+    homeSpots:[[7.2,6.8],[7.8,6.8],[7.2,7.4],[7.8,7.4]],
+    base:[[10.4,10.4],[12.6,10.4],[10.4,12.6],[12.6,12.6]] },
+  { id:'blue',   name:'Blue',   color:'#3b82f6', dark:'#1d4ed8', start:39,
+    homeCol:[[7,13],[7,12],[7,11],[7,10],[7,9]],
+    homeSpots:[[6.1,7.1],[6.5,7.1],[6.1,7.7],[6.5,7.7]],
+    base:[[1.4,10.4],[3.6,10.4],[1.4,12.6],[3.6,12.6]] },
+];
+
+function createLudo(){
+  const S = {
+    players: [],   // { pieces:[pos x4] }  pos: -1 base, 0..50 ring, 51..55 home col, 56 home
+    types: [],     // 'human' | 'cpu' | 'off'
+    turn: 0,
+    dice: 5,
+    sixes: 0,
+    phase: 'setup', // setup | roll | move | anim | over
+    winner: -1,
+  };
+
+  function setup(types){
+    S.types = types.slice();
+    S.players = types.map(() => ({ pieces: [-1,-1,-1,-1] }));
+    S.turn = firstActive(0);
+    S.dice = 5; S.sixes = 0; S.phase = 'roll'; S.winner = -1;
+  }
+
+  function firstActive(from){
+    for (let i = 0; i < 4; i++){
+      const p = (from + i) % 4;
+      if (S.types[p] !== 'off') return p;
+    }
+    return -1;
+  }
+
+  function nextTurn(){
+    S.turn = firstActive(S.turn + 1);
+    S.sixes = 0;
+    S.phase = 'roll';
+  }
+
+  // cell coords (in 15x15 units) for a player's piece position
+  function cellOf(pi, pos, pieceIdx){
+    const P = LUDO_PLAYERS[pi];
+    if (pos === -1) return P.base[pieceIdx];
+    if (pos <= 50) return LUDO_PATH[(P.start + pos) % 52];
+    if (pos <= 55) return P.homeCol[pos - 51];
+    return P.homeSpots[pieceIdx];
+  }
+
+  function ringIndex(pi, pos){ // pos 0..50 -> 0..51 path index
+    return (LUDO_PLAYERS[pi].start + pos) % 52;
+  }
+
+  // all legal moves for player pi with dice value d
+  function legalMoves(pi, d){
+    const P = LUDO_PLAYERS[pi];
+    const pl = S.players[pi];
+    const moves = [];
+    for (let k = 0; k < 4; k++){
+      const from = pl.pieces[k];
+      if (from === 56) continue;
+      if (from === -1){
+        if (d !== 6) continue;
+        const path = [P.base[k], LUDO_PATH[P.start]];
+        moves.push({ piece:k, from, to:0, path, capture:0, safe:true, home:false });
+        continue;
+      }
+      const to = from + d;
+      if (to > 56) continue;
+      const path = [cellOf(pi, from, k)];
+      for (let p = from + 1; p <= to; p++) path.push(cellOf(pi, p, k));
+      let capture = 0, safe = false;
+      if (to <= 50){
+        const idx = ringIndex(pi, to);
+        safe = LUDO_SAFE.has(idx);
+        if (!safe){
+          for (let q = 0; q < 4; q++){
+            if (q === pi || S.types[q] === 'off') continue;
+            S.players[q].pieces.forEach((op) => {
+              if (op >= 0 && op <= 50 && ringIndex(q, op) === idx) capture++;
+            });
+          }
+        }
+      }
+      moves.push({ piece:k, from, to, path, capture, safe, home: to === 56 });
+    }
+    return moves;
+  }
+
+  // commit a move; returns events
+  function doMove(pi, mv){
+    const P = LUDO_PLAYERS[pi];
+    const pl = S.players[pi];
+    pl.pieces[mv.piece] = mv.to;
+    let captured = 0;
+    if (mv.capture > 0){
+      const idx = ringIndex(pi, mv.to);
+      for (let q = 0; q < 4; q++){
+        if (q === pi || S.types[q] === 'off') continue;
+        S.players[q].pieces = S.players[q].pieces.map((op) => {
+          if (op >= 0 && op <= 50 && ringIndex(q, op) === idx){ captured++; return -1; }
+          return op;
+        });
+      }
+    }
+    const win = pl.pieces.every((p) => p === 56);
+    if (win){ S.winner = pi; S.phase = 'over'; }
+    return { captured, home: mv.home, win };
+  }
+
+  // CPU: pick best move
+  function cpuChoose(pi, moves){
+    let bestM = null, bestS = -1e9;
+    for (const m of moves){
+      let s = Math.random() * 8;
+      if (m.capture > 0) s += 70 + m.capture * 10;
+      if (m.home) s += 45;
+      if (m.from === -1) s += 28;
+      if (m.safe) s += 14;
+      if (m.from >= 0 && m.from <= 50 && !LUDO_SAFE.has(ringIndex(pi, m.from))) s += m.to * 0.2;
+      else s += m.to * 0.1;
+      if (s > bestS){ bestS = s; bestM = m; }
+    }
+    return bestM;
+  }
+
+  return { S, setup, nextTurn, firstActive, cellOf, ringIndex, legalMoves, doMove, cpuChoose };
+}
+/* ================= DOM wiring ================= */
+(function(){
+  "use strict";
+  const game = createLudo();
+  const S = game.S;
+
+  const canvas = document.getElementById('board');
+  const ctx = canvas.getContext('2d');
+  const CELL = canvas.width / 15;
+  const DICE_FACES = ['⚀','⚁','⚂','⚃','⚄','⚅'];
+
+  const turnDot = document.getElementById('turnDot');
+  const turnText = document.getElementById('turnText');
+  const turnSub = document.getElementById('turnSub');
+  const diceBtn = document.getElementById('diceBtn');
+  const toastEl = document.getElementById('toast');
+  const setupOverlay = document.getElementById('setupOverlay');
+  const winOverlay = document.getElementById('winOverlay');
+  const winTitle = document.getElementById('winTitle');
+  const setupRows = document.getElementById('setupRows');
+
+  let gameId = 0;             // guards async CPU chains
+  let currentMoves = [];      // legal moves awaiting human choice
+  let anim = null;            // { pi, piece, cells, i, t }
+  let toastTimer = null;
+
+  /* ---------- setup UI ---------- */
+  const typeChoices = ['human', 'cpu', 'off'];
+  const typeLabels = { human:'Human', cpu:'CPU', off:'Off' };
+  const selTypes = ['human', 'cpu', 'cpu', 'cpu'];
+
+  function buildSetup(){
+    setupRows.innerHTML = '';
+    LUDO_PLAYERS.forEach((P, i) => {
+      const row = document.createElement('div');
+      row.className = 'prow';
+      row.innerHTML =
+        '<span class="dot" style="background:' + P.color + '"></span>' +
+        '<span class="pname">' + P.name + '</span>' +
+        '<div class="seg">' +
+          typeChoices.map((t) =>
+            '<button data-t="' + t + '" class="' + (selTypes[i] === t ? 'on' : '') + '">' + typeLabels[t] + '</button>'
+          ).join('') +
+        '</div>';
+      row.querySelectorAll('.seg button').forEach((b) => {
+        b.addEventListener('click', () => {
+          selTypes[i] = b.dataset.t;
+          row.querySelectorAll('.seg button').forEach((x) => x.classList.toggle('on', x === b));
+        });
+      });
+      setupRows.appendChild(row);
+    });
+  }
+
+  document.getElementById('startGameBtn').addEventListener('click', () => {
+    const active = selTypes.filter((t) => t !== 'off').length;
+    if (active < 2){ toast('Pick at least <b>2 players</b>.'); return; }
+    startGame();
+  });
+  document.getElementById('newGameBtn').addEventListener('click', () => {
+    gameId++;
+    anim = null;
+    S.phase = 'setup';
+    setupOverlay.hidden = false;
+    winOverlay.hidden = true;
+    syncTurnbar();
+    draw();
+  });
+  document.getElementById('againBtn').addEventListener('click', () => {
+    winOverlay.hidden = true;
+    setupOverlay.hidden = false;
+    S.phase = 'setup';
+    syncTurnbar();
+  });
+
+  function startGame(){
+    gameId++;
+    game.setup(selTypes);
+    anim = null;
+    currentMoves = [];
+    setupOverlay.hidden = true;
+    winOverlay.hidden = true;
+    diceBtn.textContent = DICE_FACES[4];
+    syncTurnbar();
+    draw();
+    beginTurn();
+  }
+
+  /* ---------- turn flow ---------- */
+  function isHuman(pi){ return S.types[pi] === 'human'; }
+
+  function beginTurn(){
+    const id = gameId;
+    const pi = S.turn;
+    const P = LUDO_PLAYERS[pi];
+    syncTurnbar();
+    if (S.phase === 'over') return;
+    if (isHuman(pi)){
+      turnSub.textContent = 'Tap the dice';
+      diceBtn.disabled = false;
+    } else {
+      turnSub.textContent = 'Thinking…';
+      diceBtn.disabled = true;
+      setTimeout(() => { if (id === gameId && S.phase === 'roll') humanRoll(true); }, 750);
+    }
+  }
+
+  function toast(html, ms){
+    toastEl.innerHTML = html;
+    toastEl.classList.add('show');
+    clearTimeout(toastTimer);
+    if (ms) toastTimer = setTimeout(() => toastEl.classList.remove('show'), ms);
+  }
+
+  function humanRoll(fromCpu){
+    if (S.phase !== 'roll') return;
+    const id = gameId;
+    diceBtn.disabled = true;
+    diceBtn.classList.add('rolling');
+    let n = 0;
+    const shuffle = setInterval(() => {
+      diceBtn.textContent = DICE_FACES[(Math.random()*6)|0];
+      if (++n >= 8){
+        clearInterval(shuffle);
+        diceBtn.classList.remove('rolling');
+        const d = 1 + ((Math.random()*6)|0);
+        S.dice = d;
+        diceBtn.textContent = DICE_FACES[d-1];
+        if (id === gameId) onRolled(d);
+      }
+    }, 60);
+  }
+  diceBtn.addEventListener('click', () => humanRoll(false));
+
+  function onRolled(d){
+    const pi = S.turn;
+    const P = LUDO_PLAYERS[pi];
+    if (d === 6){
+      S.sixes++;
+      if (S.sixes >= 3){
+        S.sixes = 0;
+        toast('<b>' + P.name + '</b> rolled three 6s — turn skipped.', 1800);
+        return endTurn(false);
+      }
+    } else {
+      S.sixes = 0;
+    }
+    const moves = game.legalMoves(pi, d);
+    if (moves.length === 0){
+      toast('<b>' + P.name + '</b> rolled ' + d + ' — no moves.', 1500);
+      return endTurn(false);
+    }
+    if (moves.length === 1){
+      return commitMove(pi, moves[0]);
+    }
+    // multiple options
+    currentMoves = moves;
+    S.phase = 'move';
+    if (isHuman(pi)){
+      toast('Rolled <b>' + d + '</b> — tap a glowing piece.', 2200);
+      turnSub.textContent = 'Choose a piece';
+    } else {
+      const id = gameId;
+      setTimeout(() => {
+        if (id !== gameId || S.phase !== 'move') return;
+        const pick = game.cpuChoose(pi, currentMoves);
+        commitMove(pi, pick);
+      }, 650);
+    }
+  }
+
+  function commitMove(pi, mv){
+    const id = gameId;
+    S.phase = 'anim';
+    currentMoves = [];
+    turnSub.textContent = '';
+    // animate along path cells
+    anim = { pi, piece: mv.piece, cells: mv.path, i: 0, t: 0, mv, id };
+  }
+
+  function finishAnim(){
+    const { pi, mv, id } = anim;
+    anim = null;
+    if (id !== gameId) return;
+    const P = LUDO_PLAYERS[pi];
+    const ev = game.doMove(pi, mv);
+    draw();
+    if (ev.win){
+      winTitle.textContent = P.name + ' wins!';
+      winTitle.style.color = P.color;
+      winOverlay.hidden = false;
+      syncTurnbar();
+      return;
+    }
+    let msg = '';
+    if (ev.captured > 0) msg += '<b>' + P.name + '</b> captures! ';
+    if (ev.home) msg += 'Piece home! ';
+    const extra = (S.dice === 6) || ev.captured > 0 || ev.home;
+    if (msg) toast(msg + (extra ? 'Roll again.' : ''), 1700);
+    endTurn(extra && !ev.win);
+  }
+
+  function endTurn(extra){
+    const id = gameId;
+    if (extra){
+      S.phase = 'roll';
+      setTimeout(() => { if (id === gameId) beginTurn(); }, 900);
+    } else {
+      game.nextTurn();
+      setTimeout(() => { if (id === gameId) beginTurn(); }, 900);
+    }
+  }
+
+  /* ---------- board tap: choose piece ---------- */
+  canvas.addEventListener('click', (e) => {
+    if (S.phase !== 'move' || !isHuman(S.turn)) return;
+    const rect = canvas.getBoundingClientRect();
+    const cx = (e.clientX - rect.left) / rect.width * 15;
+    const cy = (e.clientY - rect.top) / rect.height * 15;
+    const pi = S.turn;
+    let bestM = null, bestD = 0.9;
+    for (const m of currentMoves){
+      const cell = game.cellOf(pi, m.from, m.piece);
+      const d = Math.hypot(cell[0] + 0.5 - cx, cell[1] + 0.5 - cy);
+      if (d < bestD){ bestD = d; bestM = m; }
+    }
+    if (bestM) commitMove(pi, bestM);
+  });
+
+  /* ---------- rendering ---------- */
+  function syncTurnbar(){
+    if (S.phase === 'setup' || S.turn < 0){
+      turnDot.style.background = '#2b3a5c';
+      turnText.textContent = 'Set up players';
+      turnSub.textContent = '';
+      return;
+    }
+    const P = LUDO_PLAYERS[S.turn];
+    turnDot.style.background = P.color;
+    turnText.textContent = S.phase === 'over' ? P.name + ' wins!' : P.name + "'s turn";
+  }
+
+  function rr(x, y, w, h, r){
+    ctx.beginPath();
+    ctx.moveTo(x+r, y);
+    ctx.arcTo(x+w, y, x+w, y+h, r);
+    ctx.arcTo(x+w, y+h, x, y+h, r);
+    ctx.arcTo(x, y+h, x, y, r);
+    ctx.arcTo(x, y, x+w, y, r);
+    ctx.closePath();
+  }
+
+  function drawBoard(){
+    const u = CELL;
+    // background
+    ctx.fillStyle = '#f1f5f9';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // bases
+    const bases = [
+      { p:0, x:0, y:0 }, { p:1, x:9, y:0 }, { p:2, x:9, y:9 }, { p:3, x:0, y:9 },
+    ];
+    for (const b of bases){
+      const P = LUDO_PLAYERS[b.p];
+      ctx.fillStyle = P.color;
+      rr(b.x*u, b.y*u, 6*u, 6*u, 10);
+      ctx.fill();
+      ctx.fillStyle = '#ffffff';
+      rr((b.x+0.75)*u, (b.y+0.75)*u, 4.5*u, 4.5*u, 14);
+      ctx.fill();
+    }
+
+    // track cells
+    for (let i = 0; i < 52; i++){
+      const [cx, cy] = LUDO_PATH[i];
+      const x = cx*u, y = cy*u;
+      // owner color for start cells
+      let fill = '#ffffff';
+      for (let p = 0; p < 4; p++){
+        if (LUDO_PLAYERS[p].start === i) fill = LUDO_PLAYERS[p].color;
+      }
+      ctx.fillStyle = fill;
+      ctx.fillRect(x+1, y+1, u-2, u-2);
+      ctx.strokeStyle = '#cbd5e1';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(x+0.5, y+0.5, u-1, u-1);
+      if (LUDO_SAFE.has(i)){
+        ctx.fillStyle = fill === '#ffffff' ? '#94a3b8' : 'rgba(255,255,255,.9)';
+        ctx.font = (u*0.5) + 'px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('★', x+u/2, y+u/2+1);
+      }
+    }
+
+    // home columns
+    LUDO_PLAYERS.forEach((P) => {
+      ctx.fillStyle = P.color;
+      for (const [cx, cy] of P.homeCol){
+        ctx.fillRect(cx*u+1, cy*u+1, u-2, u-2);
+      }
+    });
+
+    // home triangles
+    const tris = [
+      { p:0, pts:[[6,7],[6,8],[7.5,7.5]] },
+      { p:1, pts:[[7,6],[8,6],[7.5,7.5]] },
+      { p:2, pts:[[8,7],[8,8],[7.5,7.5]] },
+      { p:3, pts:[[7,8],[6,8],[7.5,7.5]] },
+    ];
+    // center cell white first
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(7*u+1, 7*u+1, u-2, u-2);
+    ctx.strokeStyle = '#cbd5e1';
+    ctx.strokeRect(7*u+0.5, 7*u+0.5, u-1, u-1);
+    for (const t of tris){
+      const P = LUDO_PLAYERS[t.p];
+      ctx.fillStyle = P.color;
+      ctx.beginPath();
+      ctx.moveTo(t.pts[0][0]*u, t.pts[0][1]*u);
+      ctx.lineTo(t.pts[1][0]*u, t.pts[1][1]*u);
+      ctx.lineTo(t.pts[2][0]*u, t.pts[2][1]*u);
+      ctx.closePath();
+      ctx.fill();
+    }
+  }
+
+  function pieceXY(pi, k, time){
+    // animated piece?
+    if (anim && anim.pi === pi && anim.piece === k){
+      const cells = anim.cells;
+      const i = Math.min(anim.i, cells.length - 2);
+      const a = cells[i], b = cells[i+1];
+      const t = Math.min(1, anim.t / 0.13);
+      const e = t*t*(3-2*t);
+      return [a[0] + (b[0]-a[0])*e + 0.5, a[1] + (b[1]-a[1])*e + 0.5];
+    }
+    const pos = S.players[pi].pieces[k];
+    const c = game.cellOf(pi, pos, k);
+    return [c[0] + 0.5, c[1] + 0.5];
+  }
+
+  function drawPieces(time){
+    const u = CELL;
+    // group track pieces by cell for stacking
+    const groups = new Map();
+    const singles = [];
+    for (let pi = 0; pi < 4; pi++){
+      if (S.types[pi] === 'off') continue;
+      const P = LUDO_PLAYERS[pi];
+      for (let k = 0; k < 4; k++){
+        const pos = S.players[pi].pieces[k];
+        const isAnim = anim && anim.pi === pi && anim.piece === k;
+        if (pos === -1 || pos >= 51 || isAnim){
+          singles.push({ pi, k, P });
+          continue;
+        }
+        const idx = game.ringIndex(pi, pos);
+        const key = 'r' + idx;
+        if (!groups.has(key)) groups.set(key, []);
+        groups.get(key).push({ pi, k, P });
+      }
+    }
+    const drawOne = (pi, k, P, x, y, r) => {
+      const [px, py] = pieceXY(pi, k, time);
+      const X = (x != null ? x : px) * u, Y = (y != null ? y : py) * u;
+      // movable highlight
+      if (S.phase === 'move' && pi === S.turn && currentMoves.some((m) => m.piece === k)){
+        const pulse = 0.55 + 0.35 * Math.sin(time / 180);
+        ctx.beginPath();
+        ctx.arc(X, Y, r + 5, 0, Math.PI*2);
+        ctx.strokeStyle = 'rgba(251,191,36,' + pulse.toFixed(2) + ')';
+        ctx.lineWidth = 4;
+        ctx.stroke();
+      }
+      ctx.beginPath();
+      ctx.arc(X, Y, r, 0, Math.PI*2);
+      ctx.fillStyle = P.color;
+      ctx.fill();
+      ctx.lineWidth = 2.5;
+      ctx.strokeStyle = P.dark;
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(X - r*0.28, Y - r*0.28, r*0.3, 0, Math.PI*2);
+      ctx.fillStyle = 'rgba(255,255,255,.45)';
+      ctx.fill();
+    };
+    // stacked groups
+    for (const list of groups.values()){
+      const { pi, k } = list[0];
+      const pos = S.players[pi].pieces[k];
+      const c = game.cellOf(pi, pos, k);
+      const n = list.length;
+      const cols = Math.ceil(Math.sqrt(n));
+      const r = Math.max(6, u*0.32 / cols + 3);
+      list.forEach((it, j) => {
+        const gx = j % cols, gy = ((j / cols)|0);
+        const ox = (gx - (cols-1)/2) * (u*0.62/cols);
+        const oy = (gy - (Math.ceil(n/cols)-1)/2) * (u*0.62/cols);
+        drawOne(it.pi, it.k, it.P, c[0]+0.5 + ox/u, c[1]+0.5 + oy/u, r);
+      });
+    }
+    // singles (base, home col, home, animated)
+    for (const s of singles){
+      const pos = S.players[s.pi].pieces[s.k];
+      let r = u*0.30;
+      if (pos === -1) r = u*0.62;
+      else if (pos >= 56) r = u*0.20;
+      else if (pos >= 51) r = u*0.26;
+      drawOne(s.pi, s.k, s.P, null, null, r);
+    }
+  }
+
+  function draw(time){
+    drawBoard();
+    if (S.phase !== 'setup') drawPieces(time || 0);
+  }
+
+  /* ---------- main loop ---------- */
+  function loop(now){
+    requestAnimationFrame(loop);
+    if (anim){
+      anim.t += 1/60;
+      if (anim.t >= 0.13){
+        anim.t = 0;
+        anim.i++;
+        if (anim.i >= anim.cells.length - 1) finishAnim();
+      }
+    }
+    draw(now);
+  }
+
+  document.addEventListener('visibilitychange', () => {
+    // nothing needed; game is turn-based
+  });
+
+  if ('serviceWorker' in navigator){
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('sw.js').catch(() => {});
+    });
+  }
+
+  buildSetup();
+  syncTurnbar();
+  requestAnimationFrame(loop);
+  draw();
+})();
+</script>
+</body>
+</html>
